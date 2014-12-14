@@ -16,6 +16,7 @@
 ;		atomed set with crawled url
 
 (def crawled-urls (atom #{}))
+(def output (atom []))
 
 
 
@@ -23,12 +24,21 @@
   [seqence elm]  
   (not (nil? (some #(= elm %) seqence))))
 
+
+(defn indent [level]
+  (str/join "" (take level (repeat "  "))))
+
 (defn get-a-href [base href]
-  (let [url-href (url/url-like href)]
-    (if (url/relative? url-href)
-           (.toString (url/resolve (url/url-like base) url-href))
-           href)
-         )
+  (let [url-href (url/url-like href)
+  		base-url (url/url-like base)]
+
+  	; (println href "->" url-href)
+  	; (println base "->" base-url)
+    (->> (if (url/relative? url-href)
+           (url/resolve base-url url-href)
+           url-href)
+    	 (.toString))
+  )
 )	
 
 (defn response-status [response]
@@ -42,19 +52,18 @@
 )
 
 (defn url-response [url]
-	(try 
- 		(client/get (url/url-like url)
- 		  {:throw-exceptions false
+ 		(client/get url
+ 		  	{:throw-exceptions false
             :conn-timeout     60000
             :follow-redirects false}
             )
- 		(catch Exception e {:status 404}))
 )
 
 (defn read-url-from-file [file-name]
   {:pre [(not (nil? file-name))]}
 	(if (.exists (io/file file-name))
 	  	(with-open [rdr (io/reader file-name)]
+	 	 	(defn read-string [string] string)
 	 	 	(doall (map read-string (line-seq rdr)))
 	 	)
 	  	(println (str "ERROR: file " file-name " does not exists"))
@@ -72,17 +81,36 @@
     )
 )
 
-(defn process-url [url level]
-	(let [response (url-response url)
-		body (:body response)]
+(defn process-url [url base level]
+	; (println "process-url" url)
 
+	(let [response (url-response url)
+		body (:body response)
+		hrefs (links-from-html body base)
+		status (response-status response)]
+
+		(swap! output conj (str (indent level) url " " (:status status)))
+		(crawl-urls hrefs base (- level 1))
 	)
 )
 
-(defn crawl-urls [urls level]
-	(when (> level 0)
-		(pmap (fn [url] 
-			(process-url url level)) urls)
+(defn crawl-urls 
+	([urls level]
+		(when (> level 0)
+			(doall (map (fn [url]
+							(when (not (contain-in-sequence? @crawled-urls url)) 
+								((swap! crawled-urls conj url)
+								(process-url url url level)))) 
+						urls)))
+	)
+
+	([urls base level]
+		(when (> level 0)
+			(doall (map (fn [url]
+							(when (not (contain-in-sequence? @crawled-urls url)) 
+								((swap! crawled-urls conj url)
+								(process-url url base level)))) 
+						urls)))
 	)
 )
 
@@ -90,8 +118,7 @@
 (defn -main [file-path levels]
 	(let [levels (Integer/parseInt levels)
 		  urls (read-url-from-file file-path)]
-		  (println levels)
-		  (println urls)
 		(crawl-urls urls levels)
+		(println output)
 	)
 )
