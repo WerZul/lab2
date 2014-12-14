@@ -25,10 +25,10 @@
 
 (defn get-a-href [base href]
   (let [url-href (url/url-like href)]
-    (->> (if (not (url/absolute? url-href))
-           (url/resolve (url/url-like base) url-href)
-           url-href)
-         (.toString)))
+    (if (url/relative? url-href)
+           (.toString (url/resolve (url/url-like base) url-href))
+           href)
+         )
 )	
 
 (defn response-status [response]
@@ -65,7 +65,8 @@
 	(reduce (fn [hrefs a-tag]
     			(let [href (:href (:attrs a-tag))]
                 	(if (not (nil? href))
-                    	(conj hrefs (get-a-href base href)))))
+                    	(conj hrefs (get-a-href base href))
+                    	hrefs)))								;;; FIX - when is empty (:a without href)
       		[]
       		(html/select (html/html-snippet body) #{[:a]})
     )
