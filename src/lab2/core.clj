@@ -6,7 +6,7 @@
   (:require [clojurewerkz.urly.core :as url])
   (:gen-class))
 
-
+(declare crawl-urls)
 ;codes for checking
 (def http-redirect-codes #{301 302 303 307})
 (def http-success-codes #{200 201 202 203 204 205 206 207})
