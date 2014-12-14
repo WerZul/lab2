@@ -106,7 +106,7 @@
 
 	([urls base level]
 		(when (> level 0)
-			(doall (map (fn [url]
+			(doall (pmap (fn [url]
 							(when (not (contain-in-sequence? @crawled-urls url)) 
 								((swap! crawled-urls conj url)
 								(process-url url base level)))) 
